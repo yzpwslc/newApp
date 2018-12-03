@@ -45,7 +45,7 @@ class SignalProcess(object):
             self._df = dataframe
             
     def f_envelope_spectrum(self):
-        analytic_signal = signal.hilbert(self.df.iloc[:, 2])
+        analytic_signal = signal.hilbert(self.df.z)
         amplitude_envelope = np.abs(analytic_signal)
 #        fs = 4000
 #        f = fftpack.fftfreq(analytic_signal.size, d=1 / fs)
@@ -55,6 +55,11 @@ class SignalProcess(object):
 #        plt.plot(freq, sig_fft)
         f, p = signal.welch(amplitude_envelope, self.sample_freq, scaling='spectrum')
         return f, p
+    
+    def f_amp_ratio(self, split_freq=750):
+        f, p = self.f_envelope_spectrum()
+        ratio = p[ : f[f <= split_freq].size].max() / p[f[f > split_freq].size : ].max()
+        return ratio
         
     def t_v_rms(self, col='z', r_type='a'):
         if r_type == 'v':
@@ -87,7 +92,7 @@ if __name__ == '__main__':
     filename = '/data/20181201_2/M03JS0004/WUDAO/aMIAN/FCFT5/17-20181201095911-log.txt'
     db = mongodb_op.MongodbOp()
 #    db.query_dict = {'label' : {'$eq' : 1}, 'youdao' : {'$eq' : False}}
-    db.query_dict = {'label' : {'$eq' : 0}}
+    db.query_dict = {'label' : {'$eq' : 1}}
     res = db.query()
     file_list = set()
     for r in res:
@@ -115,7 +120,9 @@ if __name__ == '__main__':
 #        print(mean)
 #        mode = signal0.t_a_mode()
 #        print(mode)
-        vrange = signal0.t_a_range()
+#        vrange = signal0.t_a_range()
+#        print(vrange)
+        vrange = signal0.f_amp_ratio()
         print(vrange)
 #        rms.plot()
     
