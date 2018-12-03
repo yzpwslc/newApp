@@ -55,15 +55,24 @@ class SignalProcess(object):
 #        plt.plot(freq, sig_fft)
         f, p = signal.welch(amplitude_envelope, self.sample_freq, scaling='spectrum')
         return f, p
-    
-    def find_peaks(self, arr, window_length, ratio):
-        diff_arr = np.diff(arr[1])
         
-    def t_v_rms(self, r_type='v'):
+    def t_v_rms(self, col='z', r_type='a'):
         if r_type == 'v':
-            self.df = (self.df * self.time_step - (self.df * self.time_step).mean()).cumsum() 
+            self.df.loc[:, col] = (self.df[col] * self.time_step - (self.df[col] * self.time_step).mean()).cumsum() 
 #        return self.df.map(lambda x : x ** 2).rolling(self.sample_freq).mean().dropna().reset_index(drop=True)
-        return self.df.map(lambda x : x ** 2).agg('mean')
+        return self.df[col].map(lambda x : x ** 2).agg('mean')
+    
+    def t_a_std(self, col='z'):
+        return self.df[col].agg('std')
+    
+    def t_a_mean(self, col='z'):
+        return self.df[col].agg('mean')
+    
+    def t_a_mode(self, col='z'):
+        return self.df[col].agg('mode').values.mean()
+    
+    def t_a_range(self, col='z'):
+        return self.df[col].max() - self.df[col].min()
     
 if __name__ == '__main__':
 #    in_dir = '/data/20180915'
@@ -78,7 +87,7 @@ if __name__ == '__main__':
     filename = '/data/20181201_2/M03JS0004/WUDAO/aMIAN/FCFT5/17-20181201095911-log.txt'
     db = mongodb_op.MongodbOp()
 #    db.query_dict = {'label' : {'$eq' : 1}, 'youdao' : {'$eq' : False}}
-    db.query_dict = {'label' : {'$eq' : 1}}
+    db.query_dict = {'label' : {'$eq' : 0}}
     res = db.query()
     file_list = set()
     for r in res:
@@ -94,12 +103,20 @@ if __name__ == '__main__':
         data_pre = dp.data_drop(data_pre, drop_type='tail', pct=0.2)
         
         signal0 = SignalProcess(df=data_pre)
-        f, p = signal0.f_envelope_spectrum()
-        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
-        plt.plot(f, p)
+#        f, p = signal0.f_envelope_spectrum()
+#        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
+#        plt.plot(f, p)
 #        signal0 = SignalProcess(df=data_pre['z'])
 #        rms = signal0.t_v_rms(r_type='a')
 #        print(rms)
+#        std = signal0.t_a_std()
+#        print(std)
+#        mean = signal0.t_a_mean()
+#        print(mean)
+#        mode = signal0.t_a_mode()
+#        print(mode)
+        vrange = signal0.t_a_range()
+        print(vrange)
 #        rms.plot()
     
         

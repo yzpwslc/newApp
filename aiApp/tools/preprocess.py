@@ -32,10 +32,6 @@ class DataPreprocess(object):
 #        self._filname = self.__txt_op.filename
         
     def origin_data(self):
-#        file_lst = self.__db.query()
-#        records = list(file_lst)
-#        record = np.random.choice(records, 1)[0]
-#        self.__txt_op.filename = os.path.join(record['a_uri'], record['filename'])
         self.__txt_op.filename = self._filename
         self.df = self.__txt_op.read_txt()
         self.df.drop(['date', 'id', 'time'], axis=1, inplace=True)
@@ -47,7 +43,7 @@ class DataPreprocess(object):
         if drop_type == 'head':
             df = df.iloc[row_num : ]
         else:
-            df = df.iloc[: -row_num]
+            df = df.iloc[ : -row_num]
         return df
     
     def data_split(self, n=3, reset_index=True):
@@ -61,7 +57,7 @@ class DataPreprocess(object):
         
 
 if __name__ == '__main__':
-    dp = DataPreprocess()
+    dp = DataPreprocess(filename='/data/20181201_2/M03JS0005/WUDAO/aMIAN/FCFT3/17-20181201103408-log.txt')
     dp.origin_data()
     
         
