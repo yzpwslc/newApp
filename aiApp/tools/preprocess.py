@@ -28,22 +28,35 @@ class DataPreprocess(object):
         self.VERSION = self.args.get('version', '1_0_0')
         self.__db = mongodb_op.MongodbOp(version=self.VERSION)
         self.__txt_op = txt_process.TxtProcess()
+        self._filename = self.args.get('filename')
 #        self._filname = self.__txt_op.filename
         
     def origin_data(self):
-        file_lst = self.__db.query()
-        records = list(file_lst)
-        record = np.random.choice(records, 1)[0]
-        self.__txt_op.filename = os.path.join(record['a_uri'], record['filename'])
+#        file_lst = self.__db.query()
+#        records = list(file_lst)
+#        record = np.random.choice(records, 1)[0]
+#        self.__txt_op.filename = os.path.join(record['a_uri'], record['filename'])
+        self.__txt_op.filename = self._filename
         self.df = self.__txt_op.read_txt()
-        return self.df.index.values, self.df.z.values
+        self.df.drop(['date', 'id', 'time'], axis=1, inplace=True)
+        self.df = self.df.drop(self.df[~self.df.all(axis=1)].index)
+        return self
     
-    def data_split(self, n=3):
+    def data_drop(self, df, pct=0.15, drop_type='head'):
+        row_num = int(df.shape[0] * pct)
+        if drop_type == 'head':
+            df = df.iloc[row_num : ]
+        else:
+            df = df.iloc[: -row_num]
+        return df
+    
+    def data_split(self, n=3, reset_index=True):
         sub_df = []
         for i in range(n):
             part_num = self.df.shape[0] // n
 #            print('{}:{}'.format(part_num * i, part_num * (i + 1)))
-            sub_df.append(self.df.iloc[part_num * i: part_num * (i + 1)])
+            if reset_index:
+                sub_df.append(self.df.iloc[part_num * i: part_num * (i + 1)].reset_index(drop=True))
         return sub_df
         
 

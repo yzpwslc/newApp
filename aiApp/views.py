@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from django.shortcuts import render
-from .tools import tdms_op, signalProcess, txt_process
+from .tools import preprocess, signalProcess, mongodb_op
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.template import loader
@@ -41,3 +41,30 @@ def specturm(col_name, channel_num=1, part='1'):
 #    print(p)
 #    line.add(col_name, f, p, is_datazoom_show=True, is_datazoom_extra_show=True)
     return line
+
+def rms(request):
+    template = loader.get_template('rms.html')
+    db = mongodb_op.MongodbOp()
+    
+    db.query_dict = {'label' : {'$eq' : 1}}
+    res = db.query()
+    file_list = set()
+    for r in res:
+        file = os.path.join(r['a_uri'], r['filename'])
+        file_list.add(file)
+    df_lst = preprocess.DataPreprocess(filename=file_list.pop()).origin_data().data_split()
+    
+    signal = signalProcess.SignalProcess(df=df_lst[1]['z']).t_v_rms()
+    x = signal.index.values
+    y = signal.values
+    line = Line('RMS')
+    line.add('z', x, y, xaxis_type='value', is_datazoom_show=True, is_datazoom_extra_show=True, datazoom_range=[0, 100], datazoom_extra_range=[0, 100])
+    
+    context = dict(
+            script_list = line.get_js_dependencies(), 
+            filelist = file_list, 
+            myechart=line.render_embed(),
+            )
+    return HttpResponse(template.render(context, request))
+    
+    

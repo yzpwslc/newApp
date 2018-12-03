@@ -22,6 +22,7 @@ class MongodbOp(object):
         self.__db_name = 'test'
         self.__collections_name = 'file_info_{}'.format(self.VERSION)
         self._query_dict = dict()
+        self._set_dict = dict()
         self.base_record = {'_id' : '',
                             'filename' : '',
                             'a_uri' : '',
@@ -68,6 +69,16 @@ class MongodbOp(object):
             self._query_dict = dict()
             self._query_dict = value    
         
+    @property
+    def set_dict(self):
+        return self._set_dict
+    
+    @set_dict.setter    
+    def set_dict(self, value):
+        if value != '':
+            self._set_dict = dict()
+            self._set_dict = value   
+        
     def count(self):
         res = 0
         res = self.__db[self.__collections_name].count_documents(self.query_dict)
@@ -94,6 +105,9 @@ class MongodbOp(object):
         else:
             self.__db[self.__collections_name].delete_one(self.query_dict)
         return self
+    
+    def update(self):
+        return self.__db[self.__collections_name].update_many(self.query_dict, self.set_dict)
     
     def distinct(self, key):
         return self.__db[self.__collections_name].distinct(key, filter=self.query_dict)

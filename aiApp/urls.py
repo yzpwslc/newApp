@@ -12,4 +12,5 @@ from . import views
 
 urlpatterns = [
         path('', views.index, name='index'),
+        path('rms/', views.rms, name='rms'),
         ]

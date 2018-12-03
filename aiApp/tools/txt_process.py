@@ -75,6 +75,10 @@ class TxtProcess(object):
             record['youdao'] = 'youdao' in f.lower()
             record['cnc_no'] = re.findall(cnc_pattern, f)[0]
             record['test_no'] = os.path.basename(record['a_uri'])
+            if record['cnc_no'] == 'M03JS0003':
+                self.label = 0
+            else:
+                self.label = 1
             record['label'] = self.label
             self.__db.insert([record])
         return self
@@ -88,7 +92,6 @@ class TxtProcess(object):
 #        print('file:{}'.format(self.filename))
         self.df = pd.read_table(self.filename, header=None, skiprows=1, delim_whitespace=True)
         self.df.columns = ['date', 'time', 'id', 'x', 'y', 'z']
-        self.df.drop(['date', 'id', 'x', 'y'], axis=1, inplace=True)
 #        self.df.iloc[:, 1] = self.df.iloc[:, 1].astype(np.datetime64)
         return self.df
     

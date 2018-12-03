@@ -11,8 +11,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 try:
     import tdms_op
+    import preprocess
+    import mongodb_op
 except:
     from . import tdms_op
+    from . import preprocess
 from scipy import signal, fftpack
 
 
@@ -22,7 +25,7 @@ class SignalProcess(object):
     
     def init_param(self, args):
         self.args = args
-        if args.get('df', None) == None:
+        if args.get('df', None) is None:
             self.data_file = args['data_file']
             self.in_dir = args.get('in_dir', '')
             self.dp = tdms_op.TdmsProcess(filename=self.data_file, in_dir=self.in_dir)
@@ -44,34 +47,60 @@ class SignalProcess(object):
     def f_envelope_spectrum(self):
         analytic_signal = signal.hilbert(self.df.iloc[:, 2])
         amplitude_envelope = np.abs(analytic_signal)
-        fs = 4000
-#        freq = fftpack.fftfreq(analytic_signal.size, d=1 / fs)
-#        sig_fft = [abs(fp) for fp in fftpack.fft(self.df.iloc[:, 2])]
+#        fs = 4000
+#        f = fftpack.fftfreq(analytic_signal.size, d=1 / fs)
+#        p = [abs(fp) for fp in fftpack.fft(self.df.iloc[:, 2])]
+#        f = f[f.size // 10: f.size // 2]
+#        p = p[len(p) // 10: len(p) // 2]
 #        plt.plot(freq, sig_fft)
         f, p = signal.welch(amplitude_envelope, self.sample_freq, scaling='spectrum')
-#        peaks, _ = signal.find_peaks(p, distance=100)
-#        plt.plot(f[:-1], np.diff(p))
-##        plt.plot(peaks, p[peaks], 'x')
-#        plt.show()
         return f, p
     
     def find_peaks(self, arr, window_length, ratio):
         diff_arr = np.diff(arr[1])
         
-    def t_v_rms(self):
-        self.df = self.df.rolling(self.sample_freq).mean()
-        return self.df.map(lambda x : x ** 2).mean()
+    def t_v_rms(self, r_type='v'):
+        if r_type == 'v':
+            self.df = (self.df * self.time_step - (self.df * self.time_step).mean()).cumsum() 
+#        return self.df.map(lambda x : x ** 2).rolling(self.sample_freq).mean().dropna().reset_index(drop=True)
+        return self.df.map(lambda x : x ** 2).agg('mean')
     
 if __name__ == '__main__':
-    in_dir = '/data/20180915'
-    file_list = set([f for f in os.listdir(in_dir) if f.endswith('tdms')])
-    spindle_file_list = set([f for f in file_list if 'spindle' in f])
-    print('all:{} , spindle:{}'.format(len(file_list), len(spindle_file_list)))
-#    print(spindle_file_list)
-    file = spindle_file_list.pop()
-    print(file)
-    signalprocess = SignalProcess(data_file='lh_spindle_health_assessment_20180915_004002.tdms', in_dir=in_dir)
-    res = signalprocess.f_envelope_spectrum()
+#    in_dir = '/data/20180915'
+#    file_list = set([f for f in os.listdir(in_dir) if f.endswith('tdms')])
+#    spindle_file_list = set([f for f in file_list if 'spindle' in f])
+#    print('all:{} , spindle:{}'.format(len(file_list), len(spindle_file_list)))
+##    print(spindle_file_list)
+#    file = spindle_file_list.pop()
+#    print(file)
+#    signalprocess = SignalProcess(data_file='lh_spindle_health_assessment_20180915_004002.tdms', in_dir=in_dir)
+#    res = signalprocess.f_envelope_spectrum()
+    filename = '/data/20181201_2/M03JS0004/WUDAO/aMIAN/FCFT5/17-20181201095911-log.txt'
+    db = mongodb_op.MongodbOp()
+#    db.query_dict = {'label' : {'$eq' : 1}, 'youdao' : {'$eq' : False}}
+    db.query_dict = {'label' : {'$eq' : 1}}
+    res = db.query()
+    file_list = set()
+    for r in res:
+        file = os.path.join(r['a_uri'], r['filename'])
+        file_list.add(file)
+    dp = preprocess.DataPreprocess(filename=filename)
+    for i, f in enumerate(file_list):
+        plt.figure(i)
+        dp._filename = f
+        print(f)
+        data_pre = dp.origin_data().data_split()[1]
+        data_pre = dp.data_drop(data_pre)
+        data_pre = dp.data_drop(data_pre, drop_type='tail', pct=0.2)
+        
+        signal0 = SignalProcess(df=data_pre)
+        f, p = signal0.f_envelope_spectrum()
+        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
+        plt.plot(f, p)
+#        signal0 = SignalProcess(df=data_pre['z'])
+#        rms = signal0.t_v_rms(r_type='a')
+#        print(rms)
+#        rms.plot()
     
         
 
