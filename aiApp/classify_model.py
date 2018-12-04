@@ -56,7 +56,7 @@ def helper(file_dict, out_dir, label=1):
         del df_sub
         del df
     del data_pre
-    pd.concat(temp_lst, ignore_index=True, sort=False).to_pickle(os.path.join(out_dir, '{}.pkl'.format(file_dict['filename'])))
+    pd.concat(temp_lst, ignore_index=True).to_pickle(os.path.join(out_dir, '{}.pkl'.format(file_dict['filename'])))
     del temp_lst
     print('--process finished')
     return 1
@@ -66,21 +66,23 @@ class ClassifyModel(object):
     def __init__(self, **args):
         self.init_param(args)
 #        self.preprocess()
-        if os.path.exists(os.path.join(self.out_dir, 'middle', 'data.pkl')):
+        if os.path.exists(os.path.join(self.out_dir, '{}_middle'.format(self.stage), 'data.pkl')):
             self.data = pd.read_pickle(os.path.join(self.out_dir, 'middle', 'data.pkl'))
         else:
             self.get_data()
     
     def init_param(self, args):
         self.args = args
+        self.stage = 'train'
         self.out_dir = '/data/OUT/20181201{}'.format(VERSION)
         self.__db = mongodb_op.MongodbOp()
         self.data = pd.DataFrame(columns=['rpm', 'amp_ratio', 'rms', 'std', 'mean', 'mode', 'range', 'label'])
-        self.t_pool = Pool(4)
+        self.t_pool = Pool(6)
         self.x_predict = pd.DataFrame()
         
     def preprocess(self):
 #        self.data = pd.DataFrame(columns=['rpm', 'amp_ratio', 'rms', 'std', 'mean', 'mode', 'range', 'label'])
+            
         self.data_dict = {'rpm' : [],
                           'amp_ratio' : [],
                           'rms' : [],
@@ -116,26 +118,30 @@ class ClassifyModel(object):
     def get_data(self):
 #        def helper(file_dict, label=1):
 #            print(file_dict)
-        out_dir = os.path.join(self.out_dir, 'data')
+        out_dir = os.path.join(self.out_dir, '{}_data'.format(self.stage))
         print(out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        for label in [0, 1]:
-            helper_label = partial(helper, out_dir=out_dir, label=label)
-            self.__db.query_dict = {'label' : {'$eq' : label}}
-            file_list = list(self.__db.query())
-#            print(file_list)
-
-            self.t_pool.map(helper_label, file_list)
+        if self.stage == 'train':
+            for label in [0, 1]:
+                helper_label = partial(helper, out_dir=out_dir, label=label)
+                self.__db.query_dict = {'label' : {'$eq' : label}}
+                file_list = list(self.__db.query())
+    #            print(file_list)
+                self.t_pool.map(helper_label, file_list)
+        else:
+                file_list = list(self.__db.query())
+    #            print(file_list)
+                self.t_pool.map(helper_label, file_list)            
         print('finished')
         self.contact_data()        
 #        self.data.to_pickle('data.pkl')
         
-    def refrence(self, op='train'):
+    def refrence(self):
         model_dir = '/data/OUT/20181201{}/model'.format(VERSION)
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
-        if op == 'train':
+        if self.stage == 'train':
             self.model = SVC()
             search_dict = {'C': [0.2, 0.5, 1.0], 
                     'kernel': ['linear', 'rbf', 'sigmoid'], 
@@ -159,10 +165,10 @@ class ClassifyModel(object):
         
     
     def contact_data(self):
-        f_list = [os.path.join(self.out_dir, 'data', f) for f in os.listdir(os.path.join(self.out_dir, 'data')) if f.endswith('pkl')]
+        f_list = [os.path.join(self.out_dir, '{}_data'.format(self.stage), f) for f in os.listdir(os.path.join(self.out_dir, '{}_data'.format(self.stage))) if f.endswith('pkl')]
         for f in f_list:
-            self.data = self.data.append(pd.read_pickle(f), sort=False, ignore_index=True)
-        out_dir = os.path.join(self.out_dir, 'middle')
+            self.data = self.data.append(pd.read_pickle(f), ignore_index=True)
+        out_dir = os.path.join(self.out_dir, '{}_middle'.format(self.stage))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         self.data.to_pickle(os.path.join(out_dir, 'data.pkl'))
