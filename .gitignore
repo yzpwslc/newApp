@@ -1,2 +1,6 @@
 static/
 **/__pycache__
+*.jpg
+*.png
+*.pkl
+
