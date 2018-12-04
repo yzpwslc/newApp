@@ -19,7 +19,7 @@ from sklearn.metrics import confusion_matrix
 try:
     from .tools import mongodb_op, preprocess, signalProcess
 except ImportError:
-    from tools import mongodb_op, preprocess, signalProcess
+    from tools import mongodb_op, preprocess, signalProcess, plot_confusion_matrix
     
 VERSION = '1_0_0'
 
@@ -144,14 +144,19 @@ class ClassifyModel(object):
             gs = GridSearchCV(self.model, cv=3, param_grid=search_dict, scoring='roc_auc')
             gs.fit(self.x_train.values, self.y_train.values)
             print('best score:{}'.format(gs.best_score_))
+            print('best param:{}'.format(gs.best_params_))
+            self.model = gs.best_estimator_
             with open(os.path.join(model_dir, 'model.pkl'), 'wb') as f:
-                pickle.dump(gs.best_estimator_, f)
+                pickle.dump(self.model, f)
         else:
             self.model = pickle.load(os.path.join(model_dir, 'model.pkl'))
             self.model.predict(self.x_predict)
             
     def result_analysis(self):
-        pass
+        y_true = self.y_test.values
+        cf_matrix = confusion_matrix(y_true, self.model.predict(self.x_test.values))
+        plot_confusion_matrix.plot_confusion_matrix(cf_matrix, classes=[0, 1])
+        
     
     def contact_data(self):
         f_list = [os.path.join(self.out_dir, 'data', f) for f in os.listdir(os.path.join(self.out_dir, 'data')) if f.endswith('pkl')]
@@ -175,6 +180,7 @@ class ClassifyModel(object):
         self.data.loc[:, ['rpm', 'label']] = self.data[['rpm', 'label']].astype(np.int8)
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.data.iloc[:, :-1], self.data['label'], stratify=self.data['label'], shuffle=True, test_size=0.2)
         self.refrence()
+        self.result_analysis()
 
     
 
