@@ -10,6 +10,7 @@ import gc
 import pickle
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from functools import partial
 from sklearn.neighbors import KNeighborsClassifier
@@ -66,11 +67,7 @@ class ClassifyModel(object):
     def __init__(self, **args):
         self.init_param(args)
 #        self.preprocess()
-        if os.path.exists(os.path.join(self.out_dir, '{}_middle'.format(self.stage), 'data.pkl')):
-            self.data = pd.read_pickle(os.path.join(self.out_dir, 'middle', 'data.pkl'))
-        else:
-            self.get_data()
-    
+
     def init_param(self, args):
         self.args = args
         self.stage = 'train'
@@ -118,23 +115,28 @@ class ClassifyModel(object):
     def get_data(self):
 #        def helper(file_dict, label=1):
 #            print(file_dict)
-        out_dir = os.path.join(self.out_dir, '{}_data'.format(self.stage))
-        print(out_dir)
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        if self.stage == 'train':
-            for label in [0, 1]:
-                helper_label = partial(helper, out_dir=out_dir, label=label)
-                self.__db.query_dict = {'label' : {'$eq' : label}}
-                file_list = list(self.__db.query())
-    #            print(file_list)
-                self.t_pool.map(helper_label, file_list)
+        if os.path.exists(os.path.join(self.out_dir, '{}_middle'.format(self.stage), 'data.pkl')):
+            self.data = pd.read_pickle(os.path.join(self.out_dir, '{}_middle'.format(self.stage), 'data.pkl'))
         else:
+            out_dir = os.path.join(self.out_dir, '{}_data'.format(self.stage))
+            print(out_dir)
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            if self.stage == 'train':
+                for label in [0, 1]:
+                    helper_label = partial(helper, out_dir=out_dir, label=label)
+                    self.__db.query_dict = {'label' : {'$eq' : label}}
+                    file_list = list(self.__db.query())
+        #            print(file_list)
+                    self.t_pool.map(helper_label, file_list)
+            else:
+                helper_label = partial(helper, out_dir=out_dir, label=3)
+                self.__db.query_dict = {'label' : {'$eq' : 3}}
                 file_list = list(self.__db.query())
-    #            print(file_list)
+        #            print(file_list)
                 self.t_pool.map(helper_label, file_list)            
-        print('finished')
-        self.contact_data()        
+            print('finished')
+            self.contact_data()        
 #        self.data.to_pickle('data.pkl')
         
     def refrence(self):
@@ -159,9 +161,16 @@ class ClassifyModel(object):
             self.model.predict(self.x_predict)
             
     def result_analysis(self):
-        y_true = self.y_test.values
-        cf_matrix = confusion_matrix(y_true, self.model.predict(self.x_test.values))
-        plot_confusion_matrix.plot_confusion_matrix(cf_matrix, classes=[0, 1])
+        if self.stage == 'train':
+            y_true = self.y_test.values
+            cf_matrix = confusion_matrix(y_true, self.model.predict(self.x_test.values))
+            plot_confusion_matrix.plot_confusion_matrix(cf_matrix, classes=[0, 1])
+        else:
+            y_true = np.array([0] * self.data.shape[0])
+            print('y_true:{}'.format(len(y_true)))
+            cf_matrix = confusion_matrix(y_true, self.model.predict(self.data.drop(['label'], axis=1).values))
+            plt.figure(2)
+            plot_confusion_matrix.plot_confusion_matrix(cf_matrix, classes=[0, 1])
         
     
     def contact_data(self):
@@ -182,13 +191,19 @@ class ClassifyModel(object):
         return self
     
     def model_pipline(self):
+        self.get_data()
         self.repair_data()
         self.data.loc[:, ['rpm', 'label']] = self.data[['rpm', 'label']].astype(np.int8)
-        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.data.iloc[:, :-1], self.data['label'], stratify=self.data['label'], shuffle=True, test_size=0.2)
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.data.drop(['label'], axis=1), self.data['label'], stratify=self.data['label'], shuffle=True, test_size=0.2)
         self.refrence()
         self.result_analysis()
+        self.stage = 'test'
+        self.data = pd.DataFrame(columns=['rpm', 'amp_ratio', 'rms', 'std', 'mean', 'mode', 'range', 'label'])
+        self.get_data()
+        self.repair_data()
+        self.data.loc[:, ['rpm', 'label']] = self.data[['rpm', 'label']].astype(np.int8)     
+        self.result_analysis()
 
-    
 
 if __name__ == '__main__':
     c_model = ClassifyModel()

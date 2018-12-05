@@ -75,6 +75,9 @@ class MongodbOp(object):
     
     @set_dict.setter    
     def set_dict(self, value):
+        #
+        #mdb.set_dict = {'$set' : {'label' : 3}}
+        #
         if value != '':
             self._set_dict = dict()
             self._set_dict = value   

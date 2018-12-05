@@ -92,7 +92,7 @@ if __name__ == '__main__':
     filename = '/data/20181201_2/M03JS0004/WUDAO/aMIAN/FCFT5/17-20181201095911-log.txt'
     db = mongodb_op.MongodbOp()
 #    db.query_dict = {'label' : {'$eq' : 1}, 'youdao' : {'$eq' : False}}
-    db.query_dict = {'label' : {'$eq' : 1}}
+    db.query_dict = {'label' : {'$eq' : 3}}
     res = db.query()
     file_list = set()
     for r in res:
@@ -103,14 +103,14 @@ if __name__ == '__main__':
         plt.figure(i)
         dp._filename = f
         print(f)
-        data_pre = dp.origin_data().data_split()[1]
+        data_pre = dp.origin_data().data_split()[0]
         data_pre = dp.data_drop(data_pre)
         data_pre = dp.data_drop(data_pre, drop_type='tail', pct=0.2)
         
         signal0 = SignalProcess(df=data_pre)
-#        f, p = signal0.f_envelope_spectrum()
-#        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
-#        plt.plot(f, p)
+        f, p = signal0.f_envelope_spectrum()
+        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
+        plt.plot(f, p)
 #        signal0 = SignalProcess(df=data_pre['z'])
 #        rms = signal0.t_v_rms(r_type='a')
 #        print(rms)
@@ -122,8 +122,8 @@ if __name__ == '__main__':
 #        print(mode)
 #        vrange = signal0.t_a_range()
 #        print(vrange)
-        vrange = signal0.f_amp_ratio()
-        print(vrange)
+#        vrange = signal0.f_amp_ratio()
+#        print(vrange)
 #        rms.plot()
     
         
