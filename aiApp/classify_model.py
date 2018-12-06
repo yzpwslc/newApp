@@ -22,7 +22,7 @@ try:
 except ImportError:
     from tools import mongodb_op, preprocess, signalProcess, plot_confusion_matrix
     
-VERSION = '1_0_0'
+VERSION = '1_0_1'
 
 def helper(file_dict, out_dir, label=1):
     gc.collect()
@@ -202,7 +202,7 @@ class ClassifyModel(object):
         self.get_data()
         self.repair_data()
         self.data.loc[:, ['rpm', 'label']] = self.data[['rpm', 'label']].astype(np.int8)     
-        self.result_analysis()
+#        self.result_analysis()
 
 
 if __name__ == '__main__':

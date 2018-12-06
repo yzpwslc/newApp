@@ -11,17 +11,41 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tools import mongodb_op, preprocess, signalProcess
 from itertools import combinations
+from scipy import signal
 
-VERSION = '1_0_0'
+VERSION = '1_0_1'
 
 def var_distribute():
     out_dir = '/data/OUT/20181201{}'.format(VERSION)
-    middle_data_file_uri = os.path.join(out_dir, 'middle/data.pkl')
+    middle_data_file_uri = os.path.join(out_dir, 'train_middle/data.pkl')
     data_df = pd.read_pickle(middle_data_file_uri)
 #    plt.figure(figsize=(100, 200))
     data_df.iloc[1:-1].hist()
     plt.savefig('all_var.jpg', papertype='a4')
+    print(data_df.drop(['label'], axis=1).corr())
     return data_df
+
+def origin_distribute():
+    db = mongodb_op.MongodbOp()
+    db._query_dict = {'label' : {'$eq' : 0}}
+    file_dict = db.query()
+    temp = []
+    for f_dict in file_dict:
+        
+        file = os.path.join(f_dict.get('a_uri'), f_dict.get('filename'))
+        print(file)
+        dp = preprocess.DataPreprocess(filename=file)
+        dp.origin_data()
+        dp.df = dp.df.drop(['x', 'y'], axis=1)
+        df_rpm_1, _, _ = dp.data_split()
+        df_rpm_1 = dp.data_drop(df_rpm_1,)
+        df_rpm_1 = dp.data_drop(df_rpm_1, drop_type='tail')
+        df_rpm_1.columns = [file]
+        temp.append(df_rpm_1)
+    return pd.concat(temp, sort=False, axis=1)
+        
+def muti_proc_op():
+    pass
 
 def cross_var(df):
     var_name = ['rpm', 'amp_ratio', 'rms', 'std', 'mean', 'mode', 'range']
@@ -66,8 +90,30 @@ def f_envelope_spectrum():
                     f, p = signal0.f_envelope_spectrum()
                     plt.plot(f, p)
                     plt.savefig('fig/{}_{}.jpg'.format(label, fig_num))
-                del df_sub   
+                del df_sub  
+                
+def abnormal_zero_anasys():
+    figure_no = 0
+    db = mongodb_op.MongodbOp()
+    db._query_dict = {'label' : {'$eq' : 1}}
+    file_dict = db.query()
+    temp = []
+    for f_dict in file_dict:
+        figure_no += 1
+        plt.figure(figure_no)
+        file = os.path.join(f_dict.get('a_uri'), f_dict.get('filename'))
+        print(file)
+        dp = preprocess.DataPreprocess(filename=file)
+        dp.origin_data(filter_zero=False)
+        dp.df.loc[dp.df.all(axis=1), 'z'] = 1
+        f, p = signal.welch(dp.df.z, 4000, scaling='spectrum')
+        plt.plot(f, p)
+    return f, p
+    
+
 if __name__ == '__main__':
-    data = var_distribute()
+#    data = var_distribute()
 #    cross_var(data)
-    single_var_vs_label(data)
+#    single_var_vs_label(data)
+#    df = origin_distribute()
+    f, p = abnormal_zero_anasys()

@@ -31,11 +31,12 @@ class DataPreprocess(object):
         self._filename = self.args.get('filename')
 #        self._filname = self.__txt_op.filename
         
-    def origin_data(self):
+    def origin_data(self, filter_zero=True):
         self.__txt_op.filename = self._filename
         self.df = self.__txt_op.read_txt()
         self.df.drop(['date', 'id', 'time'], axis=1, inplace=True)
-        self.df = self.df.drop(self.df[~self.df.all(axis=1)].index)
+        if filter_zero:
+            self.df = self.df.drop(self.df[~self.df.any(axis=1)].index)
         return self
     
     def data_drop(self, df, pct=0.15, drop_type='head'):
@@ -57,7 +58,8 @@ class DataPreprocess(object):
         
 
 if __name__ == '__main__':
-    dp = DataPreprocess(filename='/data/20181201_2/M03JS0005/WUDAO/aMIAN/FCFT3/17-20181201103408-log.txt')
+    dp = DataPreprocess(filename='/data/20181201_2/M03JS0003/WUDAO/bMIAN/FCFT2/17-20181201110318-log.txt')
     dp.origin_data()
+    
     
         

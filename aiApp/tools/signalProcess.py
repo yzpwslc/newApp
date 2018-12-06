@@ -56,6 +56,13 @@ class SignalProcess(object):
         f, p = signal.welch(amplitude_envelope, self.sample_freq, scaling='spectrum')
         return f, p
     
+    def f_fft(self):
+#        f = fftpack.fftfreq(self.df.z.size, d=1 / self.sample_freq)
+#        p = [abs(fp) for fp in fftpack.fft(self.df.z)]
+        f, p = signal.welch(self.df.z, self.sample_freq, scaling='spectrum')
+        return f, p
+        
+    
     def f_amp_ratio(self, split_freq=750):
         f, p = self.f_envelope_spectrum()
         ratio = p[ : f[f <= split_freq].size].max() / p[f[f > split_freq].size : ].max()
