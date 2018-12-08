@@ -83,6 +83,23 @@ class TxtProcess(object):
             self.__db.insert([record])
         return self
     
+    def qie_file_db(self):
+        record = {'_id': '',
+                  'a_uri': '',
+                  'filename': '',
+                  'part_no': '',
+                  'test_no': '',
+                  }
+        self.__db.collections_name = 'cut_data_file_{}'.format('1_0_0')
+        for f in self.file_list:
+            record['_id'] = hash(f)
+            record['a_uri'] = os.path.dirname(f)
+            record['filename'] = os.path.basename(f)
+            record['part_no'] = os.path.basename(record['a_uri'])
+            record['test_no'] = os.path.basename(os.path.dirname(record['a_uri']))
+            self.__db.insert([record])
+        return self
+    
     def file_process(self, stype='all'):
         if stype == 'all':
             pass
@@ -101,13 +118,26 @@ class TxtProcess(object):
     
     
 if __name__ == '__main__':
-    tp = TxtProcess()
+#    tp = TxtProcess()
+#    tp.file_search()
+#    tp.file_db()
+#    res = tp.file_list
+#    tp.filename = res[5]
+#    print('filename:{}'.format(tp.filename))
+#    tp.read_txt()
+    
+    tp = TxtProcess(in_dir='QIE')
     tp.file_search()
-    tp.file_db()
-    res = tp.file_list
-    tp.filename = res[5]
-    print('filename:{}'.format(tp.filename))
-    tp.read_txt()
+#    print(tp.file_list)
+#    tp.qie_file_db()
+#    tp.filename = tp.file_list[1]
+#    tp.read_txt()
+    df_lst = []
+#    for f in tp.file_list:
+#        tp.filename = f
+#        df_lst.append(tp.read_txt())
+#    res = pd.concat(df_lst, ignore_index=True)
+    
     
     
     

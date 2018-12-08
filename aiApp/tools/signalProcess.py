@@ -6,9 +6,12 @@ Created on Sat Dec  1 08:23:09 2018
 @author: yzp1011
 """
 import os
+import pywt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+#from PyEMD import EEMD
+from scipy.stats import kurtosis
 try:
     import tdms_op
     import preprocess
@@ -67,6 +70,25 @@ class SignalProcess(object):
         f, p = self.f_envelope_spectrum()
         ratio = p[ : f[f <= split_freq].size].max() / p[f[f > split_freq].size : ].max()
         return ratio
+    
+    def f_eemd(self, cols='z'):
+        t = (self.df.index * self.time_step).values
+        eemd = EEMD()
+        emd = eemd.EMD
+        emd.extrema_detection = 'parabol'
+        eIMFs = eemd.eemd(self.df[cols].values, t)
+        nIMFs = eIMFs.shape[0]
+        plt.figure(figsize=(12, 9))
+        plt.subplot(nIMFs+1, 1, 1)
+        plt.plot(t, S, 'r')
+        for n in range(nIMFs):
+            plt.subplot(nIMFs+1, 1, n+2)
+            plt.plot(t, eIMFs[n], 'g')
+            plt.ylabel("eIMF %i" %(n+1))
+            plt.locator_params(axis='y', nbins=5)
+        plt.tight_layout()
+        plt.savefig('eemd_example', dpi=120)
+        plt.show()
         
     def t_v_rms(self, col='z', r_type='a'):
         if r_type == 'v':
@@ -86,6 +108,22 @@ class SignalProcess(object):
     def t_a_range(self, col='z'):
         return self.df[col].max() - self.df[col].min()
     
+    def t_data_process_by_col(self, resample_period='S', is_save=True):
+        df_post = self.df.resample(resample_period).agg({'mean': np.mean, 
+#                             'mode': lambda x: x.mode().mean(), 
+                             'std': np.std, 
+                             'range': lambda x: x.max() - x.min(), 
+#                             'skew': 'skew', 
+                             'kurtosis': kurtosis, 
+                             'alpha': lambda x: (x ** 3).mean(), 
+#                             'beta': lambda x: (x ** 4).mean(),
+                             })
+        if is_save:
+            out_dir = '/OUT/QIE/middle/'
+            file = 'df.pkl' 
+            
+        return df_post
+    
 if __name__ == '__main__':
 #    in_dir = '/data/20180915'
 #    file_list = set([f for f in os.listdir(in_dir) if f.endswith('tdms')])
@@ -99,25 +137,29 @@ if __name__ == '__main__':
     filename = '/data/20181201_2/M03JS0004/WUDAO/aMIAN/FCFT5/17-20181201095911-log.txt'
     db = mongodb_op.MongodbOp()
 #    db.query_dict = {'label' : {'$eq' : 1}, 'youdao' : {'$eq' : False}}
-    db.query_dict = {'label' : {'$eq' : 3}}
+    db.query_dict = {'label' : {'$eq' : 0}}
     res = db.query()
     file_list = set()
     for r in res:
         file = os.path.join(r['a_uri'], r['filename'])
         file_list.add(file)
     dp = preprocess.DataPreprocess(filename=filename)
-    for i, f in enumerate(file_list):
-        plt.figure(i)
-        dp._filename = f
-        print(f)
-        data_pre = dp.origin_data().data_split()[0]
-        data_pre = dp.data_drop(data_pre)
-        data_pre = dp.data_drop(data_pre, drop_type='tail', pct=0.2)
-        
-        signal0 = SignalProcess(df=data_pre)
-        f, p = signal0.f_envelope_spectrum()
-        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
-        plt.plot(f, p)
+    df = dp.data_concat()
+    signal0 = SignalProcess(df=df)
+    post = signal0.t_data_process_by_col()
+#    for i, f in enumerate(file_list):
+#        plt.figure(i)
+#        dp._filename = f
+#        print(f)
+#        data_pre = dp.origin_data().data_split()[0]
+#        data_pre = dp.data_drop(data_pre)
+#        data_pre = dp.data_drop(data_pre, drop_type='tail', pct=0.2)
+#        
+#        signal0 = SignalProcess(df=data_pre)
+#        signal0.f_eemd()
+#        f, p = signal0.f_envelope_spectrum()
+#        print('ratio:{}'.format(p[ : f[f <= 750].size].max() / p[f[f > 750].size : ].max()))
+#        plt.plot(f, p)
 #        signal0 = SignalProcess(df=data_pre['z'])
 #        rms = signal0.t_v_rms(r_type='a')
 #        print(rms)
@@ -132,6 +174,7 @@ if __name__ == '__main__':
 #        vrange = signal0.f_amp_ratio()
 #        print(vrange)
 #        rms.plot()
+    
     
         
 
