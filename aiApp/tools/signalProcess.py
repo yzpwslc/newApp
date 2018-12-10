@@ -28,13 +28,14 @@ class SignalProcess(object):
     
     def init_param(self, args):
         self.args = args
-        if args.get('df', None) is None:
-            self.data_file = args['data_file']
-            self.in_dir = args.get('in_dir', '')
-            self.dp = tdms_op.TdmsProcess(filename=self.data_file, in_dir=self.in_dir)
-            self._df = self.dp.to_df()
-        else:
-            self._df = args['df']
+#        if args.get('df', None) is None:
+#            self.data_file = args['data_file']
+#            self.in_dir = args.get('in_dir', '')
+#            self.dp = tdms_op.TdmsProcess(filename=self.data_file, in_dir=self.in_dir)
+#            self._df = self.dp.to_df()
+#        else:
+#            self._df = args['df']
+        self._df = args['df']
         self.sample_freq = 4000
         self.time_step = 1 / self.sample_freq
             
@@ -108,7 +109,12 @@ class SignalProcess(object):
     def t_a_range(self, col='z'):
         return self.df[col].max() - self.df[col].min()
     
-    def t_data_process_by_col(self, resample_period='S', is_save=True):
+    def t_data_process_by_col(self, resample_period='1S', is_save=True):
+        print('process data by col')
+        out_file = '/data/OUT/QIE/middle/df_s.pkl'
+        if os.path.exists(out_file):
+            return pd.read_pickle(out_file)
+
         df_post = self.df.resample(resample_period).agg({'mean': np.mean, 
 #                             'mode': lambda x: x.mode().mean(), 
                              'std': np.std, 
@@ -119,8 +125,10 @@ class SignalProcess(object):
 #                             'beta': lambda x: (x ** 4).mean(),
                              })
         if is_save:
-            out_dir = '/OUT/QIE/middle/'
-            file = 'df.pkl' 
+ 
+            if not os.path.exists(os.path.dirname(out_file)):
+                os.makedirs(os.path.dirname(out_file))
+            df_post.to_pickle(out_file)
             
         return df_post
     
@@ -147,6 +155,27 @@ if __name__ == '__main__':
     df = dp.data_concat()
     signal0 = SignalProcess(df=df)
     post = signal0.t_data_process_by_col()
+    post.dropna(axis=0, inplace=True)
+    post_30s = post.rolling(20).mean()
+    post_1s = post.shift(1)
+    post_1s.dropna(axis=0, inplace=True)
+    post = post.merge(post_1s, left_index=True, right_index=True, how='inner', suffixes=['', 'last_1_s'])
+    post = post.merge(post_30s, left_index=True, right_index=True, how='inner', suffixes=['', 'last_30_s'])
+    post.dropna(axis=0, inplace=True)
+    res_cut, q_df = dp.data_cut_bins(post, bins=3)
+    res_cut
+    out_dir = '/data/OUT/QIE/image/f_enve'
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    fig_no = 1937
+#    for x in post.index.unique():
+#        print('time_{}'.format(x))
+#        signal0.df = df.loc[x + pd.Timedelta(5, unit='s')]
+#        f, p = signal0.f_envelope_spectrum()
+#        plt.figure(fig_no)
+#        plt.plot(f, p)
+#        plt.savefig(os.path.join(out_dir, '{}.jpg'.format(fig_no)))
+#        fig_no += 1
 #    for i, f in enumerate(file_list):
 #        plt.figure(i)
 #        dp._filename = f

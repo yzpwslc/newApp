@@ -31,8 +31,18 @@ class DataPreprocess(object):
         self.VERSION = self.args.get('version', '1_0_0')
         self.__db = mongodb_op.MongodbOp(version=self.VERSION)
         self.__txt_op = txt_process.TxtProcess()
-        self._filename = self.args.get('filename')
+        self._filename = self.args.get('filename', '')
+        self._query_dict = {'test_no': '13931#'}
 #        self._filname = self.__txt_op.filename
+    
+    @property
+    def query_dict(self):
+        return self._query_dict
+    
+    @query_dict.setter
+    def query_dict(self, value):
+        if value != '':
+            self._query_dict = value
         
     def origin_data(self, filter_zero=True, drop_cols=['date', 'id', 'time']):
         self.__txt_op.filename = self._filename
@@ -60,51 +70,84 @@ class DataPreprocess(object):
         return sub_df
     
     def data_concat(self, cols=['date', 'time', 'id', 'x', 'y', 'z']):
-        self.__db.collections_name = 'cut_data_file_{}'.format('1_0_0')
-        r_df = pd.DataFrame(columns = cols)
-        query_dict = {'part_no': '25M', 'test_no': '14192#'}
-        self.__db.query_dict = query_dict
-#        print(list(self.__db.query()))
-        for f_dict in self.__db.query():
-            file = os.path.join(f_dict.get('a_uri'), f_dict.get('filename'))
-            print(file)
-            self.__txt_op.filename = file
-            self.df = self.__txt_op.read_txt()
-#            self.df['time'] = self.df['date'] + ' ' + self.df['time']
-#            self.df.loc['time'] = self.df['time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
-            r_df = r_df.append(self.df)
-        r_df['time_stamp'] = r_df['date'] + ' ' + r_df['time']
-        r_df.drop(['date', 'time', 'id'], inplace=True, axis=1)
-        r_df.loc[:, 'time_stamp'] = r_df['time_stamp'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
-        r_df.set_index('time_stamp', inplace=True)
+        out_file = '/data/OUT/QIE/middle/df_all.pkl'
+        try:
+            r_df = pd.read_pickle(out_file)
+        except:
+            self.__db.collections_name = 'cut_data_file_{}'.format('1_0_0')
+            r_df = pd.DataFrame(columns = cols)
+            
+            self.__db.query_dict = self.query_dict
+    #        print(list(self.__db.query()))
+            for f_dict in self.__db.query():
+                file = os.path.join(f_dict.get('a_uri'), f_dict.get('filename'))
+                print(file)
+                self.__txt_op.filename = file
+                self.df = self.__txt_op.read_txt()
+    #            self.df['time'] = self.df['date'] + ' ' + self.df['time']
+    #            self.df.loc['time'] = self.df['time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
+                r_df = r_df.append(self.df)
+            r_df['time_stamp'] = r_df['date'] + ' ' + r_df['time']
+            r_df.drop(['date', 'time', 'id'], inplace=True, axis=1)
+            r_df.loc[:, 'time_stamp'] = r_df['time_stamp'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
+            r_df.set_index('time_stamp', inplace=True)
+            r_df.dropna(axis=0)
+            if not os.path.exists(os.path.dirname(out_file)):
+                os.makedirs(os.path.dirname(out_file))
+            r_df.to_pickle(out_file)
         return r_df
     
-    def data_process_by_col(self, df, resample_period='S', is_save=True):
-        df_post = df.resample(resample_period).agg({'mean': np.mean, 
-#                             'mode': lambda x: x.mode().mean(), 
-                             'std': np.std, 
-                             'range': lambda x: x.max() - x.min(), 
-#                             'skew': 'skew', 
-                             'kurtosis': kurtosis, 
-                             'alpha': lambda x: (x ** 3).mean(), 
-#                             'beta': lambda x: (x ** 4).mean(),
-                             })
-        return df_post
+#    def data_process_by_col(self, df, resample_period='5S', is_save=True):
+#        df_post = df.resample(resample_period).agg({'mean': np.mean, 
+##                             'mode': lambda x: x.mode().mean(), 
+#                             'std': np.std, 
+#                             'range': lambda x: x.max() - x.min(), 
+##                             'skew': 'skew', 
+#                             'kurtosis': kurtosis, 
+#                             'alpha': lambda x: (x ** 3).mean(), 
+##                             'beta': lambda x: (x ** 4).mean(),
+#                             })
+#        return df_post
     
-    def data_plot(self, df):
+    def data_plot(self, post):
         for i, c in enumerate(post.columns):
             plt.figure(figsize=(12, 9))
             plt.subplot(len(post.columns), 1, i + 1)
             post[c].plot()
             plt.show()
+            
+    def data_cut_bins(self, df, q_df=None, bins=3, cols=[]):
+        if q_df is None:
+            q_df = pd.DataFrame()
+            q_list = []
+            if len(cols) == 0:
+                columns = df.columns
+            else:
+                columns = cols
+            for c in columns:
+                print('process {}'.format(c))
+                temp, q_bins = pd.qcut(df[c], bins, labels=False, retbins=True)
+                df.loc[:, c] = temp
+                q_list.append(pd.DataFrame(q_bins))
+#                self.list = q_list
+#                self.df = df
+            q_df = pd.concat(q_list, axis=1)
+                
+        else:
+            if len(cols) == 0:
+                for c in df.columns:
+                    cut_bins = q_df[c].values
+                    temp = pd.cut(df[c], bins=cut_bins, labels=False)
+                    df.loc[:, c] = temp
+        return df, q_df
     
-    
-              
+                    
+                    
 if __name__ == '__main__':
     dp = DataPreprocess(filename='/data/20181201_2/M03JS0003/WUDAO/bMIAN/FCFT2/17-20181201110318-log.txt')
 #    dp.origin_data()
     res = dp.data_concat()
-    post = dp.data_process_by_col(res)
+#    post = dp.data_process_by_col(res)
     del res
     gc.collect()
 
